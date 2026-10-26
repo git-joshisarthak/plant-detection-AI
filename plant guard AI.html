@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#090d16">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PlantGuard">
+
+    <title>PlantGuard AI - Mobile Plant Leaf Health Scanner</title>
+    <meta name="description"
+        content="Instant real-time plant disease detection and treatment recommendations using your mobile phone camera and on-device AI.">
+
+    <!-- Favicon & PWA Icons -->
+    <link rel="icon" type="image/png" href="icons/favicon.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Typography from Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div id="app-container" class="app-container">
+
+        <!-- Top Navigation Header -->
+        <header class="top-nav" id="top-nav">
+            <div class="brand">
+                <div class="brand-logo-glow">
+                    <img src="icons/icon-192.png" alt="PlantGuard Logo" class="brand-img">
+                </div>
+                <div class="brand-text">
+                    <h1 class="brand-title">PlantGuard <span class="badge-ai">AI</span></h1>
+                    <span class="brand-subtitle" id="camera-status-text">Sensor Active</span>
+                </div>
+            </div>
+
+            <div class="nav-actions">
+                <!-- Torch/Flash toggle -->
+                <button id="btn-torch" class="icon-btn" aria-label="Toggle Flashlight" title="Toggle Flashlight">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="svg-icon">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                </button>
+
+                <!-- Flip Camera (Front/Back) -->
+                <button id="btn-flip-cam" class="icon-btn" aria-label="Switch Camera" title="Switch Camera">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="svg-icon">
+                        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+                    </svg>
+                </button>
+
+                <!-- Scan History Log -->
+                <button id="btn-history" class="icon-btn" aria-label="Scan History" title="Scan History">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="svg-icon">
+                        <path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"></path>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Target Plant / Crop Selector Bar -->
+        <div class="crop-bar" id="crop-bar">
+            <div class="crop-scroll">
+                <button class="crop-chip active" data-crop="tomato">🍅 Tomato</button>
+                <button class="crop-chip" data-crop="potato">🥔 Potato</button>
+                <button class="crop-chip" data-crop="cucurbit">🥒 Cucumber / Squash</button>
+                <button class="crop-chip" data-crop="pepper">🌶️ Pepper / Chili</button>
+                <button class="crop-chip" data-crop="general">🌿 General Crop</button>
+            </div>
+        </div>
+
+        <!-- Main Camera Viewfinder Stage -->
+        <main class="viewfinder-stage" id="viewfinder-stage">
+            <div class="video-wrapper">
+                <video id="camera-video" autoplay playsinline muted></video>
+                <canvas id="analysis-canvas" class="hidden-canvas"></canvas>
+
+                <!-- Futuristic Augmented Scanning HUD Overlay -->
+                <div class="hud-overlay" id="hud-overlay">
+                    <!-- Animated Corner Brackets -->
+                    <div class="reticle-box">
+                        <span class="corner top-left"></span>
+                        <span class="corner top-right"></span>
+                        <span class="corner bottom-left"></span>
+                        <span class="corner bottom-right"></span>
+
+                        <!-- Laser scanning beam animation -->
+                        <div class="scan-laser" id="scan-laser"></div>
+
+                        <!-- Focus Crosshair -->
+                        <div class="crosshair-center"></div>
+                    </div>
+
+                    <!-- Live Target Guidance Text -->
+                    <div class="hud-hint" id="hud-hint">
+                        <span class="pulse-dot"></span>
+                        <span id="hint-text">Center a single leaf in frame</span>
+                    </div>
+
+                    <!-- Real-time chromatic telemetry bar -->
+                    <div class="telemetry-bar">
+                        <span class="telemetry-label">CHLOROPHYLL</span>
+                        <div class="telemetry-track">
+                            <div class="telemetry-fill" id="telemetry-fill"></div>
+                        </div>
+                        <span class="telemetry-value" id="telemetry-val">Optimal</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Controls & Shutter Deck -->
+        <footer class="shutter-deck" id="shutter-deck">
+
+            <!-- Sample Demo Leaves Drawer Trigger -->
+            <div class="presets-bar">
+                <span class="presets-label">QUICK TEST:</span>
+                <button class="preset-pill" data-sample="sample_leaves/test_healthy_leaf.jpg">🌿 Healthy</button>
+                <button class="preset-pill" data-sample="sample_leaves/test_powdery_mildew.jpg">🍄 Mildew</button>
+                <button class="preset-pill" data-sample="sample_leaves/test_early_blight.jpg">⚠️ Early Blight</button>
+                <button class="preset-pill" data-sample="sample_leaves/test_late_blight.jpg">🔴 Late Blight</button>
+            </div>
+
+            <div class="shutter-row">
+                <!-- Gallery File Upload Button -->
+                <label for="gallery-input" class="deck-btn gallery-btn" title="Choose from Photo Library">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="svg-icon">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                    <span class="deck-btn-label">Photos</span>
+                </label>
+                <input type="file" id="gallery-input" accept="image/*" class="visually-hidden">
+
+                <!-- Primary Shutter Button -->
+                <button id="btn-shutter" class="shutter-button" aria-label="Capture and Diagnose Leaf">
+                    <div class="shutter-ring">
+                        <div class="shutter-core">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                                class="shutter-icon">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path
+                                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                                </path>
+                            </svg>
+                        </div>
+                    </div>
+                </button>
+
+                <!-- Continuous Auto-Detect Toggle -->
+                <button id="btn-auto-scan" class="deck-btn" title="Toggle Auto Real-time Detection">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="svg-icon">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    <span class="deck-btn-label" id="auto-scan-label">Auto</span>
+                </button>
+            </div>
+        </footer>
+
+        <!-- Slide-Up Diagnosis Result Sheet / Modal -->
+        <div id="result-sheet" class="result-sheet">
+            <div class="sheet-scrim" id="sheet-scrim"></div>
+
+            <div class="sheet-content">
+                <!-- Sheet Drag Handle -->
+                <div class="sheet-handle-bar">
+                    <span class="handle"></span>
+                </div>
+
+                <!-- Result Header Badge -->
+                <div class="result-header">
+                    <div class="result-badge" id="result-badge">
+                        <span class="badge-icon" id="badge-icon">🌿</span>
+                        <div class="badge-details">
+                            <h2 class="diagnosis-name" id="diagnosis-name">Healthy Leaf</h2>
+                            <span class="severity-tag" id="severity-tag">Severity: None</span>
+                        </div>
+                    </div>
+
+                    <div class="confidence-circle" id="confidence-circle">
+                        <span class="conf-num" id="conf-num">98.5%</span>
+                        <span class="conf-lbl">Confidence</span>
+                    </div>
+                </div>
+
+                <!-- Photo Snapshot + Key Metric -->
+                <div class="result-media-row">
+                    <div class="captured-preview-box">
+                        <img id="result-img" src="" alt="Captured Leaf Snapshot">
+                        <span class="latency-badge" id="latency-badge">⚡ 8ms</span>
+                    </div>
+
+                    <div class="quick-facts">
+                        <div class="fact-card">
+                            <span class="fact-title">PATHOGEN TYPE</span>
+                            <span class="fact-value" id="fact-pathogen">None (Foliage Clean)</span>
+                        </div>
+                        <div class="fact-card">
+                            <span class="fact-title">ACTION REQUIRED</span>
+                            <span class="fact-value" id="fact-urgency">Routine Maintenance</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Treatment & Remediation Guide -->
+                <div class="treatment-box">
+                    <h3 class="section-heading">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            class="section-icon">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        </svg>
+                        Agricultural Action Guide
+                    </h3>
+                    <p class="action-recommendation" id="action-recommendation">
+                        Optimal cellular leaf health. No fungal or bacterial infection detected. Maintain balanced
+                        watering and
+                        natural sun exposure.
+                    </p>
+
+                    <div class="action-steps" id="action-steps">
+                        <!-- Dynamic checklist pills populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Detailed Multi-Class Probabilities -->
+                <div class="probabilities-box">
+                    <h3 class="section-heading">Class Probability Distribution</h3>
+                    <div class="prob-bars" id="prob-bars">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Action Buttons Row -->
+                <div class="sheet-actions">
+                    <button id="btn-rescan" class="btn-primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-svg">
+                            <path
+                                d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                        </svg>
+                        Scan Another Leaf
+                    </button>
+
+                    <button id="btn-share" class="btn-secondary" title="Share Diagnosis">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-svg">
+                            <circle cx="18" cy="5" r="3"></circle>
+                            <circle cx="6" cy="12" r="3"></circle>
+                            <circle cx="18" cy="19" r="3"></circle>
+                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                        </svg>
+                        Share
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scan History Drawer Modal -->
+        <div id="history-modal" class="modal-overlay">
+            <div class="modal-box">
+                <div class="modal-header">
+                    <h3 class="modal-title">Inspection History</h3>
+                    <button id="btn-close-history" class="icon-close" aria-label="Close History">✕</button>
+                </div>
+
+                <div class="history-list" id="history-list">
+                    <!-- Populated dynamically from localStorage -->
+                </div>
+
+                <div class="modal-footer">
+                    <button id="btn-export-csv" class="btn-small">Export CSV</button>
+                    <button id="btn-clear-history" class="btn-small btn-danger">Clear History</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Permission / Offline Toast Banner -->
+        <div id="toast-banner" class="toast-banner">
+            <span id="toast-text">Camera stream initialized</span>
+        </div>
+
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/detector.js"></script>
+    <script src="js/camera.js"></script>
+    <script src="js/history.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>
